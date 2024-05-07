@@ -226,27 +226,49 @@ namespace ParallelImageEditor
             return Color.FromArgb(r, g, b);
         }
 
-        private void GreenFilterButton_Click(object sender, EventArgs e)
+        private async void GreenFilterButton_Click(object sender, EventArgs e)
         {
-            Bitmap image = new Bitmap(PictureBox.Image);
+            Bitmap filteredImage = await ApplyGreenFilterAsync(PictureBox.Image);
+            PictureBox.Image = filteredImage;
+        }
 
-            for (int x = 0; x < image.Width; x++)
+        private async Task<Bitmap> ApplyGreenFilterAsync(Image image)
+        {
+            return await Task.Run(() =>
             {
-                for (int y = 0; y < image.Height; y++)
+                Bitmap filteredImage = new Bitmap(image.Width, image.Height);
+                lock (imageLock)
                 {
-                    Color originalColor = image.GetPixel(x, y);
-
-                    int r = originalColor.R;
-                    int g = Math.Min(255, (int)(originalColor.G * 1.5));
-                    int b = originalColor.B;
-
-                    Color newColor = Color.FromArgb(r, g, b);
-                    image.SetPixel(x, y, newColor);
+                    using (Graphics g = Graphics.FromImage(filteredImage))
+                    {
+                        g.DrawImage(image, new Rectangle(0, 0, image.Width, image.Height));
+                    }
                 }
-            }
 
+                Parallel.For(0, image.Width, x =>
+                {
+                    Parallel.For(0, image.Height, y =>
+                    {
+                        Color pixelColor;
+                        lock (imageLock)
+                        {
+                            pixelColor = filteredImage.GetPixel(x, y);
+                        }
 
-            PictureBox.Image = image;
+                        int r = pixelColor.R;
+                        int g = Math.Min(255, (int)(pixelColor.G * 1.5));
+                        int b = pixelColor.B;
+                        Color newColor = Color.FromArgb(r, g, b);
+
+                        lock (imageLock)
+                        {
+                            filteredImage.SetPixel(x, y, newColor);
+                        }
+                    });
+                });
+
+                return filteredImage;
+            });
         }
 
         private void BlueFilterButton_Click(object sender, EventArgs e)

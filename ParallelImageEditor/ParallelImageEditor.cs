@@ -24,12 +24,6 @@ namespace ParallelImageEditor
             revertCounter = 0;
         }
 
-        private void AddState(Bitmap state)
-        {
-            previousStates.Push(state);
-            revertCounter++;
-        }
-
         private void OpenButton_Click(object sender, EventArgs e)
         {
             OpenFileDialog openFileDialog = new OpenFileDialog() { Filter = "Imagini|*.jpg;*.jpeg;*.png;*.bmp|Toate fișierele|*.*" };
@@ -40,33 +34,6 @@ namespace ParallelImageEditor
                 PictureBox.Image = ScaleImage(PictureBox.Image, PictureBox.Size);
                 AddState(new Bitmap(PictureBox.Image));
             }
-        }
-
-        private Image ScaleImage(Image image, Size pictureBoxSize)
-        {
-            int width = image.Width;
-            int height = image.Height;
-            int newWidth, newHeight;
-
-            if ((float)width / pictureBoxSize.Width > (float)height / pictureBoxSize.Height)
-            {
-                newWidth = pictureBoxSize.Width;
-                newHeight = (int)((float)height / width * newWidth);
-            }
-            else
-            {
-                newHeight = pictureBoxSize.Height;
-                newWidth = (int)((float)width / height * newHeight);
-            }
-
-            Bitmap scaledImage = new Bitmap(newWidth, newHeight);
-            using (Graphics graphics = Graphics.FromImage(scaledImage))
-            {
-                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                graphics.DrawImage(image, 0, 0, newWidth, newHeight);
-            }
-
-            return scaledImage;
         }
 
         private void FlipVerticalButton_Click(object sender, EventArgs e)
@@ -738,6 +705,39 @@ namespace ParallelImageEditor
 
                 return filteredImage;
             });
+        }
+
+        private void AddState(Bitmap state)
+        {
+            previousStates.Push(state);
+            revertCounter++;
+        }
+
+        private Image ScaleImage(Image image, Size pictureBoxSize)
+        {
+            int width = image.Width;
+            int height = image.Height;
+            int newWidth, newHeight;
+
+            if ((float)width / pictureBoxSize.Width > (float)height / pictureBoxSize.Height)
+            {
+                newWidth = pictureBoxSize.Width;
+                newHeight = (int)((float)height / width * newWidth);
+            }
+            else
+            {
+                newHeight = pictureBoxSize.Height;
+                newWidth = (int)((float)width / height * newHeight);
+            }
+
+            Bitmap scaledImage = new Bitmap(newWidth, newHeight);
+            using (Graphics graphics = Graphics.FromImage(scaledImage))
+            {
+                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                graphics.DrawImage(image, 0, 0, newWidth, newHeight);
+            }
+
+            return scaledImage;
         }
 
         private int Clamp(int value, int min, int max)

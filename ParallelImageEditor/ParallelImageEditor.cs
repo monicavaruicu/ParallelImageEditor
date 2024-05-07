@@ -410,29 +410,52 @@ namespace ParallelImageEditor
             });
         }
 
-        private void ContrastHighButton_Click(object sender, EventArgs e)
+        private async void ContrastHighButton_Click(object sender, EventArgs e)
         {
-            Bitmap image = new Bitmap(PictureBox.Image);
+            Bitmap filteredImage = await ApplyContrastHighAsync(PictureBox.Image);
+            PictureBox.Image = filteredImage;
+        }
 
-            double averageIntensity = CalculateAverageIntensity(image);
-            double factor = 1.1;
-
-            for (int x = 0; x < image.Width; x++)
+        private async Task<Bitmap> ApplyContrastHighAsync(Image image)
+        {
+            return await Task.Run(() =>
             {
-                for (int y = 0; y < image.Height; y++)
+                Bitmap filteredImage = new Bitmap(image.Width, image.Height);
+                double averageIntensity = CalculateAverageIntensity(filteredImage);
+                double factor = 1.1;
+
+                lock (imageLock)
                 {
-                    Color originalColor = image.GetPixel(x, y);
-
-                    int newR = CalculateNewIntensity(originalColor.R, averageIntensity, factor);
-                    int newG = CalculateNewIntensity(originalColor.G, averageIntensity, factor);
-                    int newB = CalculateNewIntensity(originalColor.B, averageIntensity, factor);
-
-                    Color newColor = Color.FromArgb(newR, newG, newB);
-                    image.SetPixel(x, y, newColor);
+                    using (Graphics g = Graphics.FromImage(filteredImage))
+                    {
+                        g.DrawImage(image, new Rectangle(0, 0, image.Width, image.Height));
+                    }
                 }
-            }
 
-            PictureBox.Image = image;
+                Parallel.For(0, image.Width, x =>
+                {
+                    Parallel.For(0, image.Height, y =>
+                    {
+                        Color pixelColor;
+                        lock (imageLock)
+                        {
+                            pixelColor = filteredImage.GetPixel(x, y);
+                        }
+
+                        int r = CalculateNewIntensity(pixelColor.R, averageIntensity, factor);
+                        int g = CalculateNewIntensity(pixelColor.G, averageIntensity, factor);
+                        int b = CalculateNewIntensity(pixelColor.B, averageIntensity, factor);
+                        Color newColor = Color.FromArgb(r, g, b);
+
+                        lock (imageLock)
+                        {
+                            filteredImage.SetPixel(x, y, newColor);
+                        }
+                    });
+                });
+
+                return filteredImage;
+            });
         }
 
         static double CalculateAverageIntensity(Bitmap image)
@@ -457,29 +480,52 @@ namespace ParallelImageEditor
             return Math.Min(255, Math.Max(0, newIntensity));
         }
 
-        private void ContrastLowButton_Click(object sender, EventArgs e)
+        private async void ContrastLowButton_Click(object sender, EventArgs e)
         {
-            Bitmap image = new Bitmap(PictureBox.Image);
+            Bitmap filteredImage = await ApplyContrastLowAsync(PictureBox.Image);
+            PictureBox.Image = filteredImage;
+        }
 
-            double averageIntensity = CalculateAverageIntensity(image);
-            double factor = 0.9;
-
-            for (int x = 0; x < image.Width; x++)
+        private async Task<Bitmap> ApplyContrastLowAsync(Image image)
+        {
+            return await Task.Run(() =>
             {
-                for (int y = 0; y < image.Height; y++)
+                Bitmap filteredImage = new Bitmap(image.Width, image.Height);
+                double averageIntensity = CalculateAverageIntensity(filteredImage);
+                double factor = 0.9;
+
+                lock (imageLock)
                 {
-                    Color originalColor = image.GetPixel(x, y);
-
-                    int newR = CalculateNewIntensity(originalColor.R, averageIntensity, factor);
-                    int newG = CalculateNewIntensity(originalColor.G, averageIntensity, factor);
-                    int newB = CalculateNewIntensity(originalColor.B, averageIntensity, factor);
-
-                    Color newColor = Color.FromArgb(newR, newG, newB);
-                    image.SetPixel(x, y, newColor);
+                    using (Graphics g = Graphics.FromImage(filteredImage))
+                    {
+                        g.DrawImage(image, new Rectangle(0, 0, image.Width, image.Height));
+                    }
                 }
-            }
 
-            PictureBox.Image = image;
+                Parallel.For(0, image.Width, x =>
+                {
+                    Parallel.For(0, image.Height, y =>
+                    {
+                        Color pixelColor;
+                        lock (imageLock)
+                        {
+                            pixelColor = filteredImage.GetPixel(x, y);
+                        }
+
+                        int r = CalculateNewIntensity(pixelColor.R, averageIntensity, factor);
+                        int g = CalculateNewIntensity(pixelColor.G, averageIntensity, factor);
+                        int b = CalculateNewIntensity(pixelColor.B, averageIntensity, factor);
+                        Color newColor = Color.FromArgb(r, g, b);
+
+                        lock (imageLock)
+                        {
+                            filteredImage.SetPixel(x, y, newColor);
+                        }
+                    });
+                });
+
+                return filteredImage;
+            });
         }
 
         private void Revert_Click(object sender, EventArgs e)

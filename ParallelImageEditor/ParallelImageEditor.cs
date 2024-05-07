@@ -549,64 +549,103 @@ namespace ParallelImageEditor
             }
         }
 
-        private void GrayscaleHighButton_Click(object sender, EventArgs e)
+        private async void GrayscaleHighButton_Click(object sender, EventArgs e)
         {
             if (PictureBox.Image != null)
             {
-                Bitmap grayImage = ApplyHighGrayscaleFilter(PictureBox.Image);
+                Bitmap grayImage = await ApplyGrayscaleHighFilterAsync(PictureBox.Image);
                 PictureBox.Image = grayImage;
             }
         }
 
-        private Bitmap ApplyHighGrayscaleFilter(Image image)
+        private async Task<Bitmap> ApplyGrayscaleHighFilterAsync(Image image)
         {
-            Bitmap grayImage = new Bitmap(image);
-            double factor = 1.1;
-
-            for (int x = 0; x < image.Width; x++)
+            return await Task.Run(() =>
             {
-                for (int y = 0; y < image.Height; y++)
-                {
-                    Color pixelColor = grayImage.GetPixel(x, y);
-                    int avgColor = (int)(0.3 * pixelColor.R + 0.59 * pixelColor.G + 0.11 * pixelColor.B);
-                    avgColor = Math.Min(255, (int)(avgColor * factor));
-                    Color newColor = Color.FromArgb(avgColor, avgColor, avgColor);
-                    grayImage.SetPixel(x, y, newColor);
-                }
-            }
+                Bitmap filteredImage = new Bitmap(image.Width, image.Height);
+                double factor = 1.1;
 
-            return grayImage;
+                lock (imageLock)
+                {
+                    using (Graphics g = Graphics.FromImage(filteredImage))
+                    {
+                        g.DrawImage(image, new Rectangle(0, 0, image.Width, image.Height));
+                    }
+                }
+
+                Parallel.For(0, image.Width, x =>
+                {
+                    Parallel.For(0, image.Height, y =>
+                    {
+                        Color pixelColor;
+                        lock (imageLock)
+                        {
+                            pixelColor = filteredImage.GetPixel(x, y);
+                        }
+
+                        int avgColor = (int)(0.3 * pixelColor.R + 0.59 * pixelColor.G + 0.11 * pixelColor.B);
+                        avgColor = Math.Min(255, (int)(avgColor * factor));
+                        Color newColor = Color.FromArgb(avgColor, avgColor, avgColor);
+
+                        lock (imageLock)
+                        {
+                            filteredImage.SetPixel(x, y, newColor);
+                        }
+                    });
+                });
+
+                return filteredImage;
+            });
         }
 
-        private void GrayscaleLowButton_Click(object sender, EventArgs e)
+        private async void GrayscaleLowButton_Click(object sender, EventArgs e)
         {
             if (PictureBox.Image != null)
             {
-                Bitmap grayImage = ApplyLowGrayscaleFilter(PictureBox.Image);
+                Bitmap grayImage = await ApplyGrayscaleLowFilterAsync(PictureBox.Image);
                 PictureBox.Image = grayImage;
                 AddState(new Bitmap(PictureBox.Image));
             }
         }
 
-        private Bitmap ApplyLowGrayscaleFilter(Image image)
+        private async Task<Bitmap> ApplyGrayscaleLowFilterAsync(Image image)
         {
-            Bitmap grayImage = new Bitmap(image);
-            double factor = 0.9;
-
-            for (int x = 0; x < image.Width; x++)
+            return await Task.Run(() =>
             {
-                for (int y = 0; y < image.Height; y++)
-                {
-                    Color pixelColor = grayImage.GetPixel(x, y);
-                    int avgColor = (int)(0.3 * pixelColor.R + 0.59 * pixelColor.G + 0.11 * pixelColor.B);
-                    avgColor = (int)(avgColor * factor);
-                    avgColor = Math.Min(255, avgColor);
-                    Color newColor = Color.FromArgb(avgColor, avgColor, avgColor);
-                    grayImage.SetPixel(x, y, newColor);
-                }
-            }
+                Bitmap filteredImage = new Bitmap(image.Width, image.Height);
+                double factor = 0.9;
 
-            return grayImage;
+                lock (imageLock)
+                {
+                    using (Graphics g = Graphics.FromImage(filteredImage))
+                    {
+                        g.DrawImage(image, new Rectangle(0, 0, image.Width, image.Height));
+                    }
+                }
+
+                Parallel.For(0, image.Width, x =>
+                {
+                    Parallel.For(0, image.Height, y =>
+                    {
+                        Color pixelColor;
+                        lock (imageLock)
+                        {
+                            pixelColor = filteredImage.GetPixel(x, y);
+                        }
+
+                        int avgColor = (int)(0.3 * pixelColor.R + 0.59 * pixelColor.G + 0.11 * pixelColor.B);
+                        avgColor = Math.Min(255, (int)(avgColor * factor));
+                        Color newColor = Color.FromArgb(avgColor, avgColor, avgColor);
+
+                        lock (imageLock)
+                        {
+                            filteredImage.SetPixel(x, y, newColor);
+                        }
+                    });
+                });
+
+                return filteredImage;
+            });
         }
 
         private void ColorCorrectionButton_Click(object sender, EventArgs e)

@@ -8,7 +8,7 @@ namespace ParallelImageEditor
 {
     public partial class ParallelImageEditor : Form
     {
-        private object imageLock = new object();
+        private readonly object imageLock = new object();
         private Stack<Bitmap> previousStates;
         private int revertCounter;
 
@@ -122,29 +122,48 @@ namespace ParallelImageEditor
             }
         }
 
-        private Bitmap ApplyBlackAndWhiteFilter(Image image)
+        private async Task<Bitmap> ApplyBlackAndWhiteFilterAsync(Image image)
         {
-            Bitmap filteredImage = new Bitmap(image);
-
-            for (int x = 0; x < image.Width; x++)
+            return await Task.Run(() =>
             {
-                for (int y = 0; y < image.Height; y++)
+                Bitmap filteredImage = new Bitmap(image.Width, image.Height);
+                lock (imageLock)
                 {
-                    Color pixelColor = filteredImage.GetPixel(x, y);
-                    int avgColor = (pixelColor.R + pixelColor.G + pixelColor.B) / 3;
-                    Color newColor = Color.FromArgb(avgColor, avgColor, avgColor);
-                    filteredImage.SetPixel(x, y, newColor);
+                    using (Graphics g = Graphics.FromImage(filteredImage))
+                    {
+                        g.DrawImage(image, new Rectangle(0, 0, image.Width, image.Height));
+                    }
                 }
-            }
 
-            return filteredImage;
+                Parallel.For(0, image.Width, x =>
+                {
+                    Parallel.For(0, image.Height, y =>
+                    {
+                        Color pixelColor;
+                        lock (imageLock)
+                        {
+                            pixelColor = filteredImage.GetPixel(x, y);
+                        }
+
+                        int avgColor = (pixelColor.R + pixelColor.G + pixelColor.B) / 3;
+                        Color newColor = Color.FromArgb(avgColor, avgColor, avgColor);
+
+                        lock (imageLock)
+                        {
+                            filteredImage.SetPixel(x, y, newColor);
+                        }
+                    });
+                });
+
+                return filteredImage;
+            });
         }
 
-        private void BlackAndWhiteFilterButton_Click(object sender, EventArgs e)
+        private async void BlackAndWhiteFilterButton_Click(object sender, EventArgs e)
         {
             if (PictureBox != null)
             {
-                Bitmap filteredImage = ApplyBlackAndWhiteFilter(PictureBox.Image);
+                Bitmap filteredImage = await ApplyBlackAndWhiteFilterAsync(PictureBox.Image);
                 PictureBox.Image = filteredImage;
             }
         }

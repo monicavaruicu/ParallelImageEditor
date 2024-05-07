@@ -271,26 +271,49 @@ namespace ParallelImageEditor
             });
         }
 
-        private void BlueFilterButton_Click(object sender, EventArgs e)
+        private async void BlueFilterButton_Click(object sender, EventArgs e)
         {
-            Bitmap image = new Bitmap(PictureBox.Image);
+            Bitmap filteredImage = await ApplyBlueFilterAsync(PictureBox.Image);
+            PictureBox.Image = filteredImage;
+        }
 
-            for (int x = 0; x < image.Width; x++)
+        private async Task<Bitmap> ApplyBlueFilterAsync(Image image)
+        {
+            return await Task.Run(() =>
             {
-                for (int y = 0; y < image.Height; y++)
+                Bitmap filteredImage = new Bitmap(image.Width, image.Height);
+                lock (imageLock)
                 {
-                    Color originalColor = image.GetPixel(x, y);
-
-                    int tr = originalColor.R / 2;
-                    int tg = originalColor.G / 2;
-                    int tb = originalColor.B;
-
-                    Color newColor = Color.FromArgb(tr, tg, tb);
-                    image.SetPixel(x, y, newColor);
+                    using (Graphics g = Graphics.FromImage(filteredImage))
+                    {
+                        g.DrawImage(image, new Rectangle(0, 0, image.Width, image.Height));
+                    }
                 }
-            }
 
-            PictureBox.Image = image;
+                Parallel.For(0, image.Width, x =>
+                {
+                    Parallel.For(0, image.Height, y =>
+                    {
+                        Color pixelColor;
+                        lock (imageLock)
+                        {
+                            pixelColor = filteredImage.GetPixel(x, y);
+                        }
+
+                        int r = pixelColor.R / 2;
+                        int g = pixelColor.G / 2;
+                        int b = pixelColor.B;
+                        Color newColor = Color.FromArgb(r, g, b);
+
+                        lock (imageLock)
+                        {
+                            filteredImage.SetPixel(x, y, newColor);
+                        }
+                    });
+                });
+
+                return filteredImage;
+            });
         }
 
         private void BrightnessHighButton_Click(object sender, EventArgs e)

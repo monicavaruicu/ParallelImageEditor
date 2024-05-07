@@ -316,24 +316,51 @@ namespace ParallelImageEditor
             });
         }
 
-        private void BrightnessHighButton_Click(object sender, EventArgs e)
+        private async void BrightnessHighButton_Click(object sender, EventArgs e)
         {
-            Bitmap image = new Bitmap(PictureBox.Image);
-            int brightness = 5;
+            Bitmap filteredImage = await ApplyBrightnessHighAsync(PictureBox.Image);
+            PictureBox.Image = filteredImage;
+        }
 
-            for (int x = 0; x < image.Width; x++)
+        private async Task<Bitmap> ApplyBrightnessHighAsync(Image image)
+        {
+            return await Task.Run(() =>
             {
-                for (int y = 0; y < image.Height; y++)
-                {
-                    Color originalColor = image.GetPixel(x, y);
-                    int newR = Math.Max(0, Math.Min(255, originalColor.R + brightness));
-                    int newG = Math.Max(0, Math.Min(255, originalColor.G + brightness));
-                    int newB = Math.Max(0, Math.Min(255, originalColor.B + brightness));
-                    image.SetPixel(x, y, Color.FromArgb(newR, newG, newB));
-                }
-            }
+                Bitmap filteredImage = new Bitmap(image.Width, image.Height);
+                int brightness = 5;
 
-            PictureBox.Image = image;
+                lock (imageLock)
+                {
+                    using (Graphics g = Graphics.FromImage(filteredImage))
+                    {
+                        g.DrawImage(image, new Rectangle(0, 0, image.Width, image.Height));
+                    }
+                }
+
+                Parallel.For(0, image.Width, x =>
+                {
+                    Parallel.For(0, image.Height, y =>
+                    {
+                        Color pixelColor;
+                        lock (imageLock)
+                        {
+                            pixelColor = filteredImage.GetPixel(x, y);
+                        }
+
+                        int r = Math.Max(0, Math.Min(255, pixelColor.R + brightness));
+                        int g = Math.Max(0, Math.Min(255, pixelColor.G + brightness));
+                        int b = Math.Max(0, Math.Min(255, pixelColor.B + brightness));
+                        Color newColor = Color.FromArgb(r, g, b);
+
+                        lock (imageLock)
+                        {
+                            filteredImage.SetPixel(x, y, newColor);
+                        }
+                    });
+                });
+
+                return filteredImage;
+            });
         }
 
         private void BrightnessLowButton_Click(object sender, EventArgs e)

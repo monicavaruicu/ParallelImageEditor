@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace ParallelImageEditor
 {
     public partial class ParallelImageEditor : Form
     {
+        private object imageLock = new object();
         private Stack<Bitmap> previousStates;
         private int revertCounter;
 
@@ -147,30 +149,49 @@ namespace ParallelImageEditor
             }
         }
 
-        private void SepiaFilterButton_Click(object sender, EventArgs e)
+        private async void SepiaFilterButton_Click(object sender, EventArgs e)
         {
             if (PictureBox.Image != null)
             {
-                Bitmap filteredImage = ApplySepiaFilter(PictureBox.Image);
+                Bitmap filteredImage = await ApplySepiaFilterAsync(PictureBox.Image);
                 PictureBox.Image = filteredImage;
             }
         }
 
-        private Bitmap ApplySepiaFilter(Image image)
+        private async Task<Bitmap> ApplySepiaFilterAsync(Image image)
         {
-            Bitmap filteredImage = new Bitmap(image);
-
-            for (int x = 0; x < image.Width; x++)
+            return await Task.Run(() =>
             {
-                for (int y = 0; y < image.Height; y++)
+                Bitmap filteredImage = new Bitmap(image.Width, image.Height);
+                lock (imageLock)
                 {
-                    Color pixelColor = filteredImage.GetPixel(x, y);
-                    Color newColor = CalculateSepia(pixelColor);
-                    filteredImage.SetPixel(x, y, newColor);
+                    using (Graphics g = Graphics.FromImage(filteredImage))
+                    {
+                        g.DrawImage(image, new Rectangle(0, 0, image.Width, image.Height));
+                    }
                 }
-            }
 
-            return filteredImage;
+                Parallel.For(0, image.Width, x =>
+                {
+                    Parallel.For(0, image.Height, y =>
+                    {
+                        Color pixelColor;
+                        lock (imageLock)
+                        {
+                            pixelColor = filteredImage.GetPixel(x, y);
+                        }
+
+                        Color newColor = CalculateSepia(pixelColor);
+
+                        lock (imageLock)
+                        {
+                            filteredImage.SetPixel(x, y, newColor);
+                        }
+                    });
+                });
+
+                return filteredImage;
+            });
         }
 
         private Color CalculateSepia(Color color)

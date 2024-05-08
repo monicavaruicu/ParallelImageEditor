@@ -1,4 +1,4 @@
-Editor de imagini dezvoltat în mediul .NET cu Windows Forms. Acest proiect își propune să ofere utilizatorilor o interfață intuitivă pentru editarea și manipularea imaginilor într-un mod eficient și flexibil. Prin intermediul acestei aplicații, utilizatorii pot deschide imagini din sistemul de fișiere, aplica o varietate de filtre și ajustări, precum și să revină la stările anterioare ale imaginii.
+Editor de imagini dezvoltat în mediul .NET cu Windows Forms. Prin intermediul acestei aplicații, utilizatorii pot deschide imagini din sistemul de fișiere, aplica o varietate de filtre și ajustări, precum și să revină la stările anterioare ale imaginii.
 
 Caracteristici principale:
 
